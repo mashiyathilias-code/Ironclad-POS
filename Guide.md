@@ -1,97 +1,78 @@
-# 📖 IronClad Secure Retail Suite: The Complete Guide
+# 🛡️ IronClad POS & Loyalty: Complete User Guide
 
-This guide covers everything you need to know to operate the **IronClad POS (v2.3)** and **IronClad Loyalty (v2.0)**. 
-
----
-
-## 1. Core Security & Privacy
-The IronClad suite is built on a **Zero-Knowledge** architecture. 
-- **Encryption:** All data is encrypted using the AES-GCM standard via the Web Crypto API.
-- **Ownership:** Your data never touches a cloud server. It lives in your browser's local database.
-- **The Master PIN:** Your PIN is the encryption key. **If you lose this PIN, your data cannot be recovered by anyone.**
+This guide covers the operation of the **IronClad POS Terminal** and the **IronClad Loyalty Vault**. These tools are designed to be "Zero-Knowledge" systems—meaning your data is encrypted locally in your browser using **AES-GCM 256-bit encryption**. No data is ever sent to a server.
 
 ---
 
-## 2. Getting Started
-1. **Launch:** Open `index.html` (POS) or `loyalty.html` (Loyalty) in any modern browser (Chrome, Edge, Firefox).
-2. **Initialization:** On your first visit, you will be prompted to set a **Master PIN**. 
-3. **Login:** Every time you refresh or open the app, enter your PIN to decrypt the database.
+## 🗝️ Core Security Concepts
+
+### 1. The Master PIN
+Upon first launch, you will create an **Admin PIN**. This PIN is the "key" to your database.
+*   **⚠️ Warning:** If you forget this PIN, your data cannot be recovered. 
+*   **Lockout:** Entering the wrong PIN 3 times will trigger a 30-second security lockout.
+
+### 2. Browser Storage
+Data is stored in your browser's **IndexedDB**. 
+*   **Clearing Cache:** If you "Clear Site Data" or "Reset Browser Settings," your database will be deleted. 
+*   **Persistence:** Always click **"Allow"** if your browser asks for permission to persist storage.
 
 ---
 
-## 3. IronClad POS (`index.html`)
+## 🛒 Module 1: IronClad POS (Sales & Inventory)
 
-### 🛒 Sales Terminal
-* **Categories:** Use the top navigation pills to filter products.
-* **Building an Order:** Click a product card to add it to the cart.
-* **Quantity/Removal:** Use the `+` or `-` buttons in the cart to adjust quantities. Click the trash icon to remove an item.
-* **Discounts:** Enter a percentage in the "Discount %" field to apply a price reduction to the entire subtotal.
-* **Checkout:** 1. Enter the customer's phone or email (optional) to link to a loyalty account.
-    2. Select a Payment Method (Cash, Card, etc.).
-    3. Click **Charge Customer**.
-    4. A **Printable Receipt** will appear. Use `Ctrl+P` (or `Cmd+P`) to print to a thermal or standard printer.
+### 1. Initial Configuration
+Before making your first sale, navigate to the **Looks & Users** tab:
+*   **Categories:** Create groupings (e.g., "Food", "Apparel") to organize your terminal.
+*   **Payment Methods:** Add methods like "Cash," "Credit Card," or "Crypto."
+*   **Tax & Loyalty:** Set your global VAT % and the Loyalty Earn Rate (points per $1 spent).
+*   **Cashier Mode:** Set a "Cashier PIN." This allows staff to make sales without seeing financial reports or inventory settings.
 
-### 📦 Inventory & Management
-* **Categories:** Create product categories first (e.g., "Beverages", "Electronics").
-* **Products:** * **Unit Cost:** Enter what you paid for the item.
-    * **Sell Price:** Enter the retail price. 
-    * *Note: The system uses these two values to calculate your net profit.*
-* **VAT/Tax:** Go to the **Management** tab to set your local tax percentage. This is applied automatically to every sale.
+### 2. Managing Inventory
+Navigate to the **Inventory** tab:
+*   **Adding Items:** Enter the name, sell price, unit cost, and current stock.
+*   **Stock Tracking:** The system automatically deducts stock when a sale is made and restores it if a transaction is voided.
 
-### 📈 Financial Reports
-* **Dashboard:** View your Net Revenue, Total Tax Collected, and Net Profit in real-time.
-* **Z-Reports:** Click "Generate Z-Report" to get a clean summary of the day's financial activity, broken down by payment method and product categories.
+### 3. Sales Terminal Workflow
+1.  **Selection:** Click product cards or use the **Search Bar** (top) to add items.
+2.  **Barcode Scanning:** Focus the search bar and scan a barcode. If the ID matches a product, it adds to the cart automatically.
+3.  **Customer Tagging:** Enter the customer's phone or email in the "Customer" field. This is used to track points in the Loyalty module.
+4.  **Discounts:** Apply a percentage discount if applicable.
+5.  **Checkout:** Select the payment method and click **Charge Customer**. A secure receipt will be generated.
 
----
-
-## 4. IronClad Loyalty (`loyalty.html`)
-
-### 💎 Member Tiers
-The system automatically upgrades customers based on their point balance:
-- **Bronze:** Entry level.
-- **Silver:** 500+ points.
-- **Gold:** 2,000+ points.
-- **Platinum:** 5,000+ points.
-- **Black:** 10,000+ points (The highest tier).
-
-### 👥 Managing Members
-* **Registration:** Add a member with their name, phone, and email. These details are immediately encrypted.
-* **Adjusting Points:** You can manually "Earn" or "Redeem" points.
-    * *Earn:* For adding points based on purchases.
-    * *Redeem:* For deducting points when a customer uses them for a discount.
-* **History:** Every member has a granular log showing every transaction, the date, and the point change.
-
-### ⚙️ Loyalty Configuration
-In the **Config** tab, you can set:
-- **Redemption Rate:** How much 1 point is worth in currency (e.g., 100 points = $1.00).
-- **Earning Rate:** How many points a customer gets per currency unit spent (e.g., $1.00 = 10 points).
+### 4. Voids & Financials
+*   **History:** View past sales in the **History & Void** tab. Click **Void** to undo a sale, which generates a balancing negative transaction and returns items to stock.
+*   **Z-Report:** At the end of a shift, go to **Financials** and click **End-of-Day Z-Report**. This provides a print-ready summary of sales, taxes, and payment method breakdowns.
 
 ---
 
-## 5. Maintenance & Backups
+## 💎 Module 2: Loyalty Vault (Customer CRM)
 
-### 💾 Backing Up Data
-Since data is stored locally in your browser, clearing your browser cache/history can delete your business data. 
-1. Go to the **Settings/Management** tab.
-2. Click **Export Encrypted Backup**.
-3. Save the resulting `.json` file in a secure location (Cloud drive or USB).
+### 1. Setting Tiers & Values
+Navigate to the **Settings** tab to define your program:
+*   **Point Value:** Define the cash value of 1 point (e.g., `0.01` means 100 points = $1.00).
+*   **Custom Tiers:** Create tiers like "Silver," "Gold," and "Platinum." Set the minimum points required for each. The "Card Visual" in the directory will change color based on the tier's gradient.
 
-### 📂 Importing Data
-If you move to a new computer:
-1. Open the app and log in with your PIN.
-2. Go to the **Settings/Management** tab.
-3. Click **Import Backup** and select your `.json` file.
-4. The page will reload, and your data will be restored.
+### 2. Member Management
+*   **Adding Members:** Use the **+ New Member** button. Use a unique identifier (like a phone number) as their ID.
+*   **Member Directory:** Search for customers to see their digital "Loyalty Card," current point balance, and transaction history.
 
----
-
-## 6. Access Control (POS Only)
-In the Management tab, you can set a **Cashier PIN**:
-- **Admin PIN:** Access to everything, including financial reports and price changes.
-- **Cashier PIN:** Can only access the "Sales" and "History" tabs. They cannot see profit margins or delete inventory.
+### 3. Points Workflow
+*   **Adding Points:** Click **Add Points** when a customer makes a purchase. 
+*   **Redemption:** Click **Redeem**. The system will calculate the cash value of the points based on your settings and deduct them from the member's balance.
 
 ---
 
-## ⚠️ Important Warnings
-1. **Browser Privacy Mode:** Avoid using "Incognito" or "Private" mode, as browsers often delete local data as soon as the window is closed.
-2. **Device Specific:** Data is **not** synced between your phone and your laptop unless you manually Export/Import the backup file.
+## 💾 Data Maintenance (Backups)
+
+Since data is stored only in your browser, **regular backups are mandatory**.
+
+1.  **Exporting:** Both modules have an **Export** button in their respective settings/management tabs. This downloads a `.json` file containing your entire database.
+2.  **Importing:** To move to a new computer or restore data, click **Import** and select your latest backup file.
+3.  **Recommendation:** Export a backup daily after your Z-Report and save it to a secure cloud drive or USB stick.
+
+---
+
+## 🛠️ Troubleshooting
+*   **Search not working?** Ensure your items have the correct Category assigned.
+*   **Printer formatting?** When printing receipts or Z-Reports, enable "Background Graphics" in your browser's print settings to ensure colors and lines appear correctly.
+*   **Locked out?** Wait the full 30 seconds for the timer to clear before attempting your PIN again.
