@@ -1,0 +1,13 @@
+v3.2: The Efficiency Update
+
+    Smart Denomination & Change Engine: This target aims to remove manual math from cash sales. The system will automatically suggest four "Quick Pay" buttons (like $15, $20, or Exact) based on the total. Once selected, a large overlay clearly displays the change due.
+
+    Inventory Action Center: This target transforms inventory tracking into a proactive tool. It introduces a "Needs Attention" filter for low-stock items and a "One-Tap Export" feature that allows managers to instantly copy a supplier shopping list to their clipboard.
+
+v4.0: The Luma-Touch Overhaul
+
+    Bottom-Dock Gestural Navigation: This target optimizes the interface for tablet users by replacing the sidebar with a floating bottom dock reachable by thumbs. It also introduces "Swipe-to-Void" gestures, allowing users to swipe items left to remove them from the cart.
+
+    Infinite Tape Skeuomorphic Cart: This target redesigns the digital cart to look and act like a physical receipt roll. It features a "serrated edge" graphic and a mechanical clicking animation that slides the "paper" down as items are added.
+
+    Arctic High-Contrast Adaptive Theme: This target focuses on legibility in high-glare environments. It introduces a "Luma-Glass" white mode with deep navy text and safety-orange buttons, specifically designed for use in direct sunlight or bright outdoor markets.
