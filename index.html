@@ -1186,10 +1186,15 @@ getFilteredProducts() {
                 };
                 
                 await this.db.op('transactions', 'add', {id:tx.id, blob:await this.c.encrypt(tx)});
-                this.showReceiptModal(tx);
+                this.showReceiptModal(tx.id);
             }
 
-            showReceiptModal(tx) {
+            showReceiptModal(txId) {
+    const tx = this.txs.find(t => t.id === txId);
+    if (!tx) {
+        console.error("Transaction not found:", txId);
+        return;
+    }
                 document.getElementById('rm-status').innerText = tx.refunded ? "VOID / REFUNDED" : "Secure Transaction Record";
                 document.getElementById('rm-status').style.color = tx.refunded ? "red" : "black";
                 document.getElementById('rm-date').innerText = `Date: ${new Date(tx.date).toLocaleString()}`;
@@ -1228,7 +1233,7 @@ getFilteredProducts() {
                         <td>$${x.total.toFixed(2)}</td>
                         <td style="font-weight:bold; color:${x.refunded?'#ef4444':'#34d399'}">${x.refunded ? 'VOID' : 'OK'}</td>
                         <td>
-                            <button class="btn-primary" style="padding:4px 8px; font-size:0.8rem;" onclick='app.showReceiptModal(${JSON.stringify(x).replace(/'/g, "&apos;")})'>View</button>
+                            <button class="btn-primary" style="padding:4px 8px; font-size:0.8rem;" onclick="app.showReceiptModal(${x.id})">View</button>
                             ${!x.refunded ? `<button class="btn-void" onclick="app.refundTx(${x.id})">Void</button>` : ''}
                         </td>
                     </tr>
