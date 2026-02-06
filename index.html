@@ -2,8 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' blob:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IronClad POS V3.0</title>
+    <link rel="stylesheet" href="phone.css">
     <style>
         :root {
             --glass-bg: rgba(255, 255, 255, 0.05);
@@ -1396,9 +1398,16 @@ getFilteredProducts() {
             }
 
             async exportSystem() {
-                if(!confirm("Export Backup?")) return;
+                if(!confirm("Export Encrypted Backup?")) return;
                 const data = { vat: this.vat, loyalty: this.loyaltyRate, p: this.products, c: this.cats, t: this.txs };
-                const b = new Blob([JSON.stringify(data)],{type:'application/json'});
+                const encrypted = await this.c.encrypt(data);
+                const backup = {
+                    vault: 'IRONCLAD_POS_V2',
+                    salt: JSON.parse(localStorage.getItem('pos_salt')),
+                    wrapped: JSON.parse(localStorage.getItem('pos_wrapped_admin')),
+                    payload: encrypted
+                };
+                const b = new Blob([JSON.stringify(backup)],{type:'application/json'});
                 const a = document.createElement('a'); a.href=URL.createObjectURL(b); a.download='pos_backup.json'; a.click();
             }
 
@@ -1408,8 +1417,18 @@ getFilteredProducts() {
                 r.onload = async e => {
                     try {
                         const d = JSON.parse(e.target.result);
-                        localStorage.setItem('pos_vat', d.vat);
-                        localStorage.setItem('pos_loyalty_rate', d.loyalty || 0);
+                        let finalData;
+                        if(d.vault === 'IRONCLAD_POS_V2' && d.payload) {
+                            finalData = await this.c.decrypt(d.payload);
+                            if(!finalData) throw "Decryption failed. Key mismatch.";
+                        } else {
+                            finalData = d; // Legacy support
+                        }
+
+                        if(!finalData.p || !finalData.c) throw "Invalid Data Format";
+
+                        localStorage.setItem('pos_vat', finalData.vat);
+                        localStorage.setItem('pos_loyalty_rate', finalData.loyalty || 0);
                         const store = async (n, arr) => {
                             const tx = this.db.db.transaction(n,'readwrite').objectStore(n);
                             tx.clear(); 
@@ -1419,9 +1438,11 @@ getFilteredProducts() {
                             }
                             return new Promise(res => tx.transaction.oncomplete=res);
                         };
-                        await store('products', d.p); await store('categories', d.c); await store('transactions', d.t);
+                        await store('products', finalData.p);
+                        await store('categories', finalData.c);
+                        await store('transactions', finalData.t || []);
                         location.reload();
-                    } catch(err) { alert("Import Failed"); }
+                    } catch(err) { alert("Import Failed: " + err); }
                 };
                 r.readAsText(inp.files[0]);
             }
