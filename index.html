@@ -5,7 +5,6 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' blob:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IronClad POS V3.0</title>
-    <link rel="stylesheet" href="phone.css">
     <style>
         :root {
             --glass-bg: rgba(255, 255, 255, 0.05);
@@ -695,7 +694,7 @@
                     </div>
                     <div class="panel-box">
                         <h3>Encrypted Backup</h3>
-                        <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:10px;">Exports cleartext JSON.</p>
+                        <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:10px;">Secure AES-GCM 256-bit export.</p>
                         <button class="btn-primary" style="background:var(--warning); color:black; width:100%; border:none;" onclick="app.exportSystem()">Export Full Backup</button>
                         <hr style="margin:15px 0; border:0; border-top:1px solid rgba(255,255,255,0.1);">
                         <input type="file" onchange="app.importSystem(this)">
