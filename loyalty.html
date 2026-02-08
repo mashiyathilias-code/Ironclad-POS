@@ -295,7 +295,8 @@
             <h2>Vault Locked</h2>
             <p style="color: var(--text-muted); margin-bottom: 20px;">Enter your Secure PIN</p>
             <input type="password" id="pin-input" class="pin-display" maxlength="8" placeholder="••••••">
-            <button class="btn btn-primary" style="width: 100%;" onclick="app.login()">Unlock Database</button>
+            <div id="lockout-timer" style="color: var(--danger); font-weight: bold; margin-bottom: 15px;" class="hidden"></div>
+            <button id="btn-unlock" class="btn btn-primary" style="width: 100%;" onclick="app.login()">Unlock Database</button>
         </div>
     </div>
 
@@ -421,7 +422,7 @@
 
                             <h3 style="margin-top: 30px; margin-bottom: 15px; color: var(--accent);">Data Management</h3>
                             <div style="display: flex; gap: 10px;">
-                                <button class="btn btn-primary" onclick="app.exportData()">Backup Database</button>
+                                <button class="btn btn-primary" onclick="app.exportData()">Encrypted Backup</button>
                                 <button class="btn btn-glass" onclick="document.getElementById('file-import').click()">Restore</button>
                                 <input type="file" id="file-import" class="hidden" onchange="app.importData(this)">
                             </div>
@@ -559,9 +560,12 @@
                 if(!salt) {
                     document.getElementById('auth-screen').classList.remove('hidden');
                     document.getElementById('setup-view').classList.remove('hidden');
+                    document.getElementById('pin-setup').addEventListener('keypress', (e) => { if (e.key === 'Enter') this.setupSystem(); });
                 } else {
+                    this.checkLockout();
                     document.getElementById('auth-screen').classList.remove('hidden');
                     document.getElementById('login-view').classList.remove('hidden');
+                    document.getElementById('pin-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') this.login(); });
                 }
 
                 // Add 3D Tilt Effect
@@ -593,18 +597,53 @@
             }
 
             async login() {
+                if(this.isLockedOut()) return;
+
                 const pin = document.getElementById('pin-input').value;
                 const salt = new Uint8Array(JSON.parse(localStorage.getItem('loyalty_salt')));
                 this.c.key = await this.c.genKey(pin, salt);
                 const conf = await this.db.get('config', 'main');
                 if(conf) {
                     const dec = await this.c.decrypt(conf.data);
-                    if(!dec) return alert("Invalid PIN");
+                    if(!dec) return this.handleFail();
                     this.config = dec;
                 } else {
                     await this.saveConfig(); 
                 }
+                localStorage.setItem('loyalty_fails', 0);
                 this.enter();
+            }
+
+            handleFail() {
+                let fails = parseInt(localStorage.getItem('loyalty_fails') || 0) + 1;
+                localStorage.setItem('loyalty_fails', fails);
+                document.getElementById('pin-input').value = '';
+
+                if (fails >= 3) {
+                    localStorage.setItem('loyalty_lockout', Date.now() + 30000); // 30s lockout
+                    this.checkLockout();
+                } else {
+                    alert(`Incorrect PIN. Attempt ${fails}`);
+                }
+            }
+
+            isLockedOut() { return Date.now() < parseInt(localStorage.getItem('loyalty_lockout') || 0); }
+
+            checkLockout() {
+                const lockUntil = parseInt(localStorage.getItem('loyalty_lockout') || 0);
+                const now = Date.now();
+                const timerEl = document.getElementById('lockout-timer');
+                const btn = document.getElementById('btn-unlock');
+
+                if (now < lockUntil) {
+                    timerEl.innerText = `System Locked: ${Math.ceil((lockUntil - now) / 1000)}s`;
+                    timerEl.classList.remove('hidden');
+                    btn.disabled = true;
+                    setTimeout(() => this.checkLockout(), 1000);
+                } else {
+                    timerEl.classList.add('hidden');
+                    btn.disabled = false;
+                }
             }
 
             async enter() {
@@ -766,6 +805,8 @@
                 m.points += delta;
                 m.history.push({ date: Date.now(), amt: delta, note });
 
+                this.members.sort((a, b) => b.points - a.points);
+
                 await this.saveMember(m);
                 this.closeModals();
                 this.renderAll();
@@ -825,9 +866,17 @@
             }
 
             async exportData() {
-                if(!confirm("Download Unencrypted JSON Backup?")) return;
-                const data = { config: this.config, members: this.members, date: Date.now() };
-                const blob = new Blob([JSON.stringify(data, null, 2)], {type : 'application/json'});
+                if(!confirm("Download Encrypted JSON Backup?")) return;
+                const payload = { config: this.config, members: this.members, date: Date.now() };
+                const encrypted = await this.c.encrypt(payload);
+
+                const backup = {
+                    version: "2.0",
+                    salt: JSON.parse(localStorage.getItem('loyalty_salt')),
+                    payload: encrypted
+                };
+
+                const blob = new Blob([JSON.stringify(backup, null, 2)], {type : 'application/json'});
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
                 a.download = `loyalty_backup_${Date.now()}.json`;
@@ -841,15 +890,36 @@
                 const reader = new FileReader();
                 reader.onload = async (e) => {
                     try {
-                        const d = JSON.parse(e.target.result);
-                        if(!d.members || !d.config) throw "Invalid Format";
+                        let data = JSON.parse(e.target.result);
+
+                        if (data.payload && data.salt) {
+                            const pin = prompt("Enter PIN for this backup:");
+                            if (!pin) return;
+
+                            const backupSalt = new Uint8Array(data.salt);
+                            const backupKey = await this.c.genKey(pin, backupSalt);
+
+                            const tempC = new CryptoManager();
+                            tempC.key = backupKey;
+                            const decrypted = await tempC.decrypt(data.payload);
+
+                            if (!decrypted) return alert("Invalid PIN or corrupted backup.");
+
+                            // Success. Adopt backup key/salt
+                            localStorage.setItem('loyalty_salt', JSON.stringify(data.salt));
+                            this.c.key = backupKey;
+                            data = decrypted;
+                        }
+
+                        if(!data.members || !data.config) throw "Invalid Format";
                         await this.db.clear('members');
-                        this.config = d.config;
+                        this.config = data.config;
                         await this.saveConfig();
-                        for(let m of d.members) await this.saveMember(m);
+                        for(let m of data.members) await this.saveMember(m);
                         alert("Import Successful. Reloading...");
                         location.reload();
                     } catch(err) {
+                        console.error(err);
                         alert("Import Failed: " + err);
                     }
                 };
