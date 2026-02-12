@@ -1186,6 +1186,7 @@ getFilteredProducts() {
                 };
                 
                 await this.db.op('transactions', 'add', {id:tx.id, blob:await this.c.encrypt(tx)});
+                this.txs.unshift(tx); // <--- ADD THIS LINE (updates memory)
                 this.showReceiptModal(tx.id);
             }
 
