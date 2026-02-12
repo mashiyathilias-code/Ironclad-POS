@@ -693,7 +693,7 @@
                     </div>
                     <div class="panel-box">
                         <h3>Encrypted Backup</h3>
-                        <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:10px;">Exports cleartext JSON.</p>
+                        <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:10px;">Secure AES-GCM Export.</p>
                         <button class="btn-primary" style="background:var(--warning); color:black; width:100%; border:none;" onclick="app.exportSystem()">Export Full Backup</button>
                         <hr style="margin:15px 0; border:0; border-top:1px solid rgba(255,255,255,0.1);">
                         <input type="file" onchange="app.importSystem(this)">
@@ -1186,6 +1186,7 @@ getFilteredProducts() {
                 };
                 
                 await this.db.op('transactions', 'add', {id:tx.id, blob:await this.c.encrypt(tx)});
+                this.txs.unshift(tx); // <--- ADD THIS LINE (updates memory)
                 this.showReceiptModal(tx.id);
             }
 
@@ -1397,31 +1398,77 @@ getFilteredProducts() {
 
             async exportSystem() {
                 if(!confirm("Export Backup?")) return;
-                const data = { vat: this.vat, loyalty: this.loyaltyRate, p: this.products, c: this.cats, t: this.txs };
-                const b = new Blob([JSON.stringify(data)],{type:'application/json'});
+                const payload = { vat: this.vat, loyalty: this.loyaltyRate, p: this.products, c: this.cats, t: this.txs };
+                const encrypted = await this.c.encrypt(payload);
+
+                const backup = {
+                    version: "2.0",
+                    salt: JSON.parse(localStorage.getItem('pos_salt')),
+                    wrapped: JSON.parse(localStorage.getItem('pos_wrapped_admin')),
+                    payload: encrypted
+                };
+
+                const b = new Blob([JSON.stringify(backup)],{type:'application/json'});
                 const a = document.createElement('a'); a.href=URL.createObjectURL(b); a.download='pos_backup.json'; a.click();
             }
 
             async importSystem(inp) {
-                if(!inp.files[0] || !confirm("OVERWRITE DATA?")) return;
+                if(!inp.files[0] || !confirm("OVERWRITE DATA? This will replace all current data.")) return;
                 const r = new FileReader();
                 r.onload = async e => {
                     try {
-                        const d = JSON.parse(e.target.result);
-                        localStorage.setItem('pos_vat', d.vat);
-                        localStorage.setItem('pos_loyalty_rate', d.loyalty || 0);
+                        let data = JSON.parse(e.target.result);
+                        let masterKey = this.c.masterKey;
+
+                        // Support Encrypted Format
+                        if (data.payload && data.wrapped && data.salt) {
+                            const pin = prompt("Enter PIN for this backup:");
+                            if (!pin) return;
+
+                            const backupSalt = new Uint8Array(data.salt);
+                            const backupKek = await this.c.deriveKEK(pin, backupSalt);
+                            masterKey = await this.c.unwrapKey(backupKek, data.wrapped);
+
+                            if (!masterKey) return alert("Invalid PIN for backup.");
+
+                            // Decrypt payload using backup's master key
+                            const tempC = new CryptoManager();
+                            tempC.masterKey = masterKey;
+                            const decrypted = await tempC.decrypt(data.payload);
+                            if (!decrypted) return alert("Decryption failed.");
+
+                            // Success! Update system keys to match backup for future logins
+                            localStorage.setItem('pos_salt', JSON.stringify(data.salt));
+                            localStorage.setItem('pos_wrapped_admin', JSON.stringify(data.wrapped));
+                            localStorage.removeItem('pos_wrapped_cashier'); // Security: clear cashier pin on migration
+
+                            this.c.masterKey = masterKey;
+                            data = decrypted;
+                        }
+
+                        localStorage.setItem('pos_vat', data.vat);
+                        localStorage.setItem('pos_loyalty_rate', data.loyalty || 0);
+
                         const store = async (n, arr) => {
-                            const tx = this.db.db.transaction(n,'readwrite').objectStore(n);
-                            tx.clear(); 
+                            const items = [];
                             for(let i of arr) {
-                                const blob = await this.c.encrypt(i);
-                                tx.put({id:i.id, blob:blob});
+                                items.push({id:i.id, blob: await this.c.encrypt(i)});
                             }
-                            return new Promise(res => tx.transaction.oncomplete=res);
+                            const tx = this.db.db.transaction(n, 'readwrite');
+                            const os = tx.objectStore(n);
+                            os.clear();
+                            for(let item of items) {
+                                os.put(item);
+                            }
+                            return new Promise(res => tx.oncomplete = res);
                         };
-                        await store('products', d.p); await store('categories', d.c); await store('transactions', d.t);
+                        await store('products', data.p); await store('categories', data.c); await store('transactions', data.t);
+                        alert("Import Successful! Reloading...");
                         location.reload();
-                    } catch(err) { alert("Import Failed"); }
+                    } catch(err) {
+                        console.error(err);
+                        alert("Import Failed: " + err.message);
+                    }
                 };
                 r.readAsText(inp.files[0]);
             }
