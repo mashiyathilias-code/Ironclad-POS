@@ -673,6 +673,9 @@
             }
 
             getTier(pts) {
+                if (!this.config.tiers || this.config.tiers.length === 0) {
+                    return { min: 0, name: 'Standard', style: 'bg-gradient-1' };
+                }
                 const sorted = [...this.config.tiers].sort((a,b) => b.min - a.min);
                 return sorted.find(t => pts >= t.min) || sorted[sorted.length-1];
             }
@@ -694,10 +697,11 @@
                     .filter(m => m.name.toLowerCase().includes(filter.toLowerCase()) || m.phone.includes(filter))
                     .map((m, i) => {
                         const t = this.getTier(m.points);
+                        const safeId = JSON.stringify(m.id).replace(/"/g, '&quot;');
                         return `
                         <div class="member-item fade-in ${this.activeId===m.id ? 'active' : ''}" 
                              style="animation-delay: ${i * 0.05}s"
-                             onclick="app.select(${m.id})">
+                             onclick="app.select(${safeId})">
                             <div style="display:flex; align-items:center;">
                                 <div class="avatar">${this.sanitize(m.name).substring(0,2).toUpperCase()}</div>
                                 <div><b style="font-size:1.05rem;">${this.sanitize(m.name)}</b><br><small style="color:var(--text-muted)">${this.sanitize(m.phone)}</small></div>
@@ -819,9 +823,9 @@
                 const con = document.getElementById('tier-list-container');
                 con.innerHTML = this.config.tiers.sort((a,b)=>b.min-a.min).map((t, i) => `
                     <div class="tier-row">
-                        <div style="width:20px; height:20px; border-radius:50%;" class="${t.style}"></div>
+                        <div style="width:20px; height:20px; border-radius:50%;" class="${this.sanitize(t.style)}"></div>
                         <input type="text" value="${this.sanitize(t.name)}" class="tier-input" onchange="app.updateTier(${i}, 'name', this.value)" style="width:100px;">
-                        <input type="number" value="${t.min}" class="tier-input" onchange="app.updateTier(${i}, 'min', this.value)" style="width:80px;">
+                        <input type="number" value="${this.sanitize(String(t.min))}" class="tier-input" onchange="app.updateTier(${i}, 'min', this.value)" style="width:80px;">
                         <select onchange="app.updateTier(${i}, 'style', this.value)" style="background:#333; color:white; border:none; padding:5px; border-radius:5px;">
                             <option value="bg-gradient-1" ${t.style.includes('1')?'selected':''}>Bronze</option>
                             <option value="bg-gradient-2" ${t.style.includes('2')?'selected':''}>Silver</option>
@@ -846,6 +850,7 @@
             }
 
             delTier(idx) {
+                if(this.config.tiers.length <= 1) return alert("System must have at least one tier definition.");
                 const sorted = [...this.config.tiers].sort((a,b)=>b.min-a.min);
                 sorted.splice(idx, 1);
                 this.config.tiers = sorted;
